@@ -3,6 +3,7 @@ package otp
 import (
 	"fmt"
 	"time"
+	"reflect"
 )
 
 type GenServerStruct struct{
@@ -14,8 +15,6 @@ type GenServerStruct struct{
 
 type GenServer interface {
 	Init()
-	HandleInfo(a ...interface{})
-	HandleCast(a ...interface{})
 }
 
 func (otpMgr *OtpStructs)NewGenServer(mod string, gServer GenServer){
@@ -66,12 +65,32 @@ func (gs *GenServerStruct)gen_server(){
 	for{
 		select{
 		case msg := <- gs.castpid:
-			gs.genServer.HandleCast(msg)
+			handler := praiseHandler(msg[0])
+			in := make([]reflect.Value, len(msg)-1)
+			for v := range msg[1:]{
+				in = append(in, reflect.ValueOf(v))
+			}
+			handler.Call(in)
 		case msg := <- gs.infopid:
-			gs.genServer.HandleInfo(msg)
+			handler := praiseHandler(msg[0])
+			in := make([]reflect.Value, len(msg)-1)
+			for v := range msg[1:]{
+				in = append(in, reflect.ValueOf(v))
+			}
+			handler.Call(in)
 		default:
+		fmt.Println("0000")
 			continue
 		}
 	}
 	time.Sleep(time.Second * 5)
+}
+
+func praiseHandler(handler interface{}) reflect.Value{
+	hType := reflect.TypeOf(handler)
+	if hType.Kind() != reflect.Func {
+		panic("need be a func")
+	}
+
+	return reflect.ValueOf(handler)
 }

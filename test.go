@@ -34,11 +34,11 @@ func MyTest(){
 }
 
 func cast(){
-	otpMgr.GenServerCast(mod, 11, "22")
+	otpMgr.GenServerCast(mod, HandleCast, 33, "22")
 }
 
 func info(){
-	otpMgr.GenServerInfo(mod, "aa", 343)
+	otpMgr.GenServerInfo(mod, HandleInfo, "aa", 343, 555)
 }
 
 func (gs test)Init(){
@@ -46,10 +46,10 @@ func (gs test)Init(){
 	fmt.Println("arg2:", gs.arg2)
 }
 
-func (gs test)HandleInfo(a ...interface{}){
-	fmt.Println("handle info")
+func HandleInfo(arg1 int32, arg2 string){
+	fmt.Println("handle info", arg1, "+", arg2)
 }
 
-func (gs test)HandleCast(a ...interface{}){
-	fmt.Println("handle cast")
+func HandleCast(arg1 string, arg2 int32, arg3 int32){
+	fmt.Println("handle cast", arg1, "+", arg2, "+", arg3)
 }
