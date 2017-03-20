@@ -2,7 +2,6 @@ package otp
 
 import (
 	"fmt"
-	"time"
 	"reflect"
 )
 
@@ -60,8 +59,8 @@ func (otpMgr *OtpStructs) GenServerInfo(mod string, args ...interface{}) {
 
 func (gs *GenServerStruct)gen_server(){
 	gs.genServer.Init()
-
 	gs.os.wg.Done()
+
 	for{
 		select{
 		case msg := <- gs.castpid:
@@ -79,11 +78,9 @@ func (gs *GenServerStruct)gen_server(){
 			}
 			handler.Call(in)
 		default:
-		fmt.Println("0000")
 			continue
 		}
 	}
-	time.Sleep(time.Second * 5)
 }
 
 func praiseHandler(handler interface{}) reflect.Value{
