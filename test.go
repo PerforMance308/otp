@@ -10,14 +10,6 @@ type test struct{
 	arg2 string
 }
 
-type message struct{
-
-}
-
-type rpMessage struct{
-
-}
-
 const mod = "test"
 
 var otpMgr *otp.OtpStructs
