@@ -3,6 +3,7 @@ package main
 import (
 	"otp"
 	"fmt"
+	"time"
 )
 
 type test struct{
@@ -23,6 +24,7 @@ func MyTest(){
 	otpMgr.NewGenServer(mod, test{arg1: 1, arg2: "aa"})
 	cast()
 	info()
+	time.Sleep(time.Second * 10)
 }
 
 func cast(){
@@ -34,8 +36,7 @@ func info(){
 }
 
 func (gs test)Init(){
-	fmt.Println("arg1:", gs.arg1)
-	fmt.Println("arg2:", gs.arg2)
+	fmt.Println("gen server init arg1:", gs.arg1,"arg2:", gs.arg2)
 }
 
 func HandleInfo(arg1 int32, arg2 string){

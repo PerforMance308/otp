@@ -66,15 +66,15 @@ func (gs *GenServerStruct)gen_server(){
 		case msg := <- gs.castpid:
 			handler := praiseHandler(msg[0])
 			in := make([]reflect.Value, len(msg)-1)
-			for v := range msg[1:]{
-				in = append(in, reflect.ValueOf(v))
+			for i, v := range msg[1:]{
+				in[i] = reflect.ValueOf(v)
 			}
 			handler.Call(in)
 		case msg := <- gs.infopid:
 			handler := praiseHandler(msg[0])
 			in := make([]reflect.Value, len(msg)-1)
-			for v := range msg[1:]{
-				in = append(in, reflect.ValueOf(v))
+			for i, v := range msg[1:]{
+				in[i] = reflect.ValueOf(v)
 			}
 			handler.Call(in)
 		default:
