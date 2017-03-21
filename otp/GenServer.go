@@ -9,11 +9,17 @@ type GenServerStruct struct{
 	os *OtpStructs
 	castpid chan interface{}
 	infopid chan interface{}
+	callpid chan *callMsg
 	genServer GenServer
 }
 
 type GenServer interface {
 	Init()
+}
+
+type callMsg struct {
+	from chan interface{}
+	msg interface{}
 }
 
 func (otpMgr *OtpStructs)NewGenServer(mod string, gServer GenServer){
@@ -35,8 +41,10 @@ func (gs *GenServerStruct) start() {
 	gs.os.wg.Add(1)
 	cpid := make(chan interface{}, 10)
 	ipid := make(chan interface{}, 10)
+	capid := make(chan *callMsg, 10)
 	gs.castpid = cpid
 	gs.infopid = ipid
+	gs.callpid = capid
 	go gs.gen_server()
 }
 
@@ -57,6 +65,22 @@ func (otpMgr *OtpStructs) GenServerInfo(mod string, args interface{}) {
 	}
 }
 
+func (otpMgr *OtpStructs) GenServerCall(mod string, args interface{}) interface{}{
+	if gs, err := otpMgr.gshandlers[mod]; !err{
+		fmt.Println("call error mod exist:", err)
+		return nil
+	}else{
+		fr := make(chan interface{}, 10)
+		defer close(fr)
+
+		callMsg := &callMsg{fr, args}
+		gs.callpid <- callMsg
+		rMsg := <- fr
+		return rMsg
+	}
+}
+
+
 func (gs *GenServerStruct)gen_server(){
 	gs.genServer.Init()
 	gs.os.wg.Done()
@@ -64,21 +88,36 @@ func (gs *GenServerStruct)gen_server(){
 	for{
 		select{
 		case msg := <- gs.castpid:
-			callFunc(msg)
+			castFunc(msg)
 		case msg := <- gs.infopid:
-			elem := reflect.ValueOf(msg)
-			in := make([]reflect.Value, 1)
-			in[0] = elem
-			reflect.TypeOf(msg).Method(0).Func.Call(in)
+			infoFunc(msg)
+		case msg := <- gs.callpid:
+			from := msg.from
+			callFunc(from, msg.msg)
 		default:
 			continue
 		}
 	}
 }
 
-func callFunc(msg interface{}){
+func castFunc(msg interface{}){
 	elem := reflect.ValueOf(msg)
 	in := make([]reflect.Value, 1)
 	in[0] = elem
+	reflect.TypeOf(msg).Method(0).Func.Call(in)
+}
+
+func infoFunc(msg interface{}){
+	elem := reflect.ValueOf(msg)
+	in := make([]reflect.Value, 1)
+	in[0] = elem
+	reflect.TypeOf(msg).Method(0).Func.Call(in)
+}
+
+func callFunc(from chan interface{}, msg interface{}){
+	elem := reflect.ValueOf(msg)
+	in := make([]reflect.Value, 2)
+	in[0] = elem
+	in[1] = reflect.ValueOf(from)
 	reflect.TypeOf(msg).Method(0).Func.Call(in)
 }
