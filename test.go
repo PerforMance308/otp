@@ -6,70 +6,94 @@ import (
 	"time"
 )
 
-type test struct{
-	arg1 int
-	arg2 string
+type args struct{
+	name string
 }
 
 type callMessage struct{
-	arg1 int32
-	arg2 string
+	from string
 }
 
 type castMessage struct{
-	arg1 int32
-	arg2 string
+	from string
 }
 
 type infoMessage struct{
-	arg1 int32
-	arg2 string
-	arg3 string
+	from string
 }
-
-const mod = "test"
 
 var otpMgr *otp.OtpStructs
 
 func main(){
 	otpMgr = otp.UseOtp()
-	MyTest()
-}
-
-func MyTest(){
-	otpMgr.NewGenServer(mod, test{arg1: 1, arg2: "aa"})
-	cast()
-	info()
-	call()
+	myTest1()
+	myTest2()
+	time.Sleep(time.Second * 10)
+	do1()
+	time.Sleep(time.Second * 10)
+	do2()
 	time.Sleep(time.Second * 10)
 }
 
-func call(){
-	returnMsg := otpMgr.GenServerCall(mod, &callMessage{11, "aa"})
-	fmt.Println("recv call msg:", returnMsg.(callMessage).arg1, "+", returnMsg.(callMessage).arg2)
+func myTest1(){
+	otpMgr.NewGenServer("test1", args{"test1"})
 }
 
-func cast(){
-	otpMgr.GenServerCast(mod, &castMessage{11, "aa"})
+func myTest2(){
+	otpMgr.NewGenServer("test2", args{"test2"})
 }
 
-func info(){
-	otpMgr.GenServerInfo(mod, &infoMessage{111, "aaa", "bbb"})
+func do1(){
+	cast1()
+	info1()
+	call1()
 }
 
-func (gs test)Init(){
-	fmt.Println("gen server init arg1:", gs.arg1,"arg2:", gs.arg2)
+func do2(){
+	cast2()
+	info2()
+	call2()
 }
 
-func (cm *callMessage)HandleCall(from chan interface{}){
-	fmt.Println("handle call", cm.arg1, "+", cm.arg2)
-	from <- callMessage{cm.arg1, cm.arg2}
+func call1(){
+	returnMsg := otpMgr.GenServerCall("test1", &callMessage{"test2"})
+	fmt.Println("recv call msg from:", returnMsg.(callMessage).from)
 }
 
-func (im *infoMessage)HandleInfo(){
-	fmt.Println("handle info", im.arg1, "+", im.arg2, "+", im.arg3)
+func cast1(){
+	otpMgr.GenServerCast("test1", &castMessage{"test2"})
 }
 
-func (cm *castMessage)HandleCast(){
-	fmt.Println("handle cast", cm.arg1, "+", cm.arg2)
+func info1(){
+	otpMgr.GenServerInfo("test1", &infoMessage{"test2"})
+}
+
+func call2(){
+	returnMsg := otpMgr.GenServerCall("test2", &callMessage{"test1"})
+	fmt.Println("recv call msg from:", returnMsg.(callMessage).from)
+}
+
+func cast2(){
+	otpMgr.GenServerCast("test2", &castMessage{"test1"})
+}
+
+func info2(){
+	otpMgr.GenServerInfo("test2", &infoMessage{"test1"})
+}
+
+func (gs args)Init(){
+	fmt.Println("gen server init my name:", gs.name)
+}
+
+func (cm *callMessage)HandleCall(from chan interface{}, gs *otp.GenServerStruct){
+	fmt.Println(gs.Name, ":handle call from:", cm.from)
+	from <- callMessage{cm.from}
+}
+
+func (im *infoMessage)HandleInfo(gs *otp.GenServerStruct){
+	fmt.Println(gs.Name, ":handle info from", im.from)
+}
+
+func (cm *castMessage)HandleCast(gs *otp.GenServerStruct){
+	fmt.Println(gs.Name, ":handle cast from", cm.from)
 }

@@ -3,14 +3,17 @@ package otp
 import (
 	"fmt"
 	"reflect"
+	"sync"
 )
 
 type GenServerStruct struct{
+	Name string
 	os *OtpStructs
 	castpid chan interface{}
 	infopid chan interface{}
 	callpid chan *callMsg
 	genServer GenServer
+	mu sync.RWMutex
 }
 
 type GenServer interface {
@@ -22,15 +25,16 @@ type callMsg struct {
 	msg interface{}
 }
 
-func (otpMgr *OtpStructs)NewGenServer(mod string, gServer GenServer){
+func (otpMgr *OtpStructs)NewGenServer(name string, gServer GenServer){
 	otpMgr.mu.Lock()
 	defer otpMgr.mu.Unlock()
 
 	gsStruct := &GenServerStruct{}
+	gsStruct.Name = name
 	gsStruct.genServer = gServer
 	gsStruct.os = otpMgr
 
-	otpMgr.gshandlers[mod] = gsStruct
+	otpMgr.gshandlers[name] = gsStruct
 
 	gsStruct.start()
 
@@ -88,36 +92,45 @@ func (gs *GenServerStruct)gen_server(){
 	for{
 		select{
 		case msg := <- gs.castpid:
-			castFunc(msg)
+			castFunc(gs, msg)
 		case msg := <- gs.infopid:
-			infoFunc(msg)
+			infoFunc(gs, msg)
 		case msg := <- gs.callpid:
 			from := msg.from
-			callFunc(from, msg.msg)
+			callFunc(gs, from, msg.msg)
 		default:
 			continue
 		}
 	}
 }
 
-func castFunc(msg interface{}){
-	elem := reflect.ValueOf(msg)
-	in := make([]reflect.Value, 1)
-	in[0] = elem
-	reflect.TypeOf(msg).Method(0).Func.Call(in)
-}
-
-func infoFunc(msg interface{}){
-	elem := reflect.ValueOf(msg)
-	in := make([]reflect.Value, 1)
-	in[0] = elem
-	reflect.TypeOf(msg).Method(0).Func.Call(in)
-}
-
-func callFunc(from chan interface{}, msg interface{}){
+func castFunc(gs *GenServerStruct, msg interface{}){
+	gs.mu.Lock()
+	defer gs.mu.Unlock()
 	elem := reflect.ValueOf(msg)
 	in := make([]reflect.Value, 2)
 	in[0] = elem
+	in[1] = reflect.ValueOf(gs)
+	reflect.TypeOf(msg).Method(0).Func.Call(in)
+}
+
+func infoFunc(gs *GenServerStruct, msg interface{}){
+	gs.mu.Lock()
+	defer gs.mu.Unlock()
+	elem := reflect.ValueOf(msg)
+	in := make([]reflect.Value, 2)
+	in[0] = elem
+	in[1] = reflect.ValueOf(gs)
+	reflect.TypeOf(msg).Method(0).Func.Call(in)
+}
+
+func callFunc(gs *GenServerStruct, from chan interface{}, msg interface{}){
+	gs.mu.Lock()
+	defer gs.mu.Unlock()
+	elem := reflect.ValueOf(msg)
+	in := make([]reflect.Value, 3)
+	in[0] = elem
 	in[1] = reflect.ValueOf(from)
+	in[2] = reflect.ValueOf(gs)
 	reflect.TypeOf(msg).Method(0).Func.Call(in)
 }
