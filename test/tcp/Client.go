@@ -152,9 +152,8 @@ func (c *Client)readLoop(){
 		}
 		data := bytes[:i]
 
-		c.ReceivedBytes = append(c.ReceivedBytes, data...)
-		fmt.Println("recv:", string(c.ReceivedBytes))
-		c.srv.BroadCast(&c.ReceivedBytes)
+		fmt.Println("recv:", string(data))
+		c.srv.BroadCast(&data)
 	}
 }
 
@@ -162,14 +161,8 @@ func (c *Client) WriteToNetConn(data *[]byte) {
 	if c.netConn() == nil || c.Closed() {
 		return
 	}
-	c.netConn().SetWriteDeadline(time.Now().Add(10 * time.Minute))
-
+	c.netConn().Write(*data)
 	c.bwmu.Lock()
 
 	defer c.bwmu.Unlock()
-
-	if _, err := c.bw.Write(*data); err != nil {
-		c.CloseConnection(0*time.Second, false)
-
-	}
 }
