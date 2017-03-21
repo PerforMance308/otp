@@ -71,3 +71,9 @@ func (s *Server) handleConnect(conn net.Conn) {
 
 }
 
+func (s *Server) BroadCast(msg *[]byte){
+	for _, c := range s.clients{
+		c.WriteToNetConn(msg)
+	}
+}
+

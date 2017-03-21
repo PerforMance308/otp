@@ -1,3 +1,9 @@
 # go-gen_server
 
-just test, not finished
+
+# useage
+
+```
+cd test
+go run testApp.go
+```
