@@ -4,21 +4,14 @@ import "sync"
 
 type OtpStructs struct{
 	mu sync.RWMutex
-	gshandlers map[string]*GenServerStruct
-	fsmhandlers map[string]*FsmStruct
-	wg *sync.WaitGroup
+	applications map[string]*application
 }
 
-type FsmStruct struct{
-	name string
-	pid chan []interface{}
-}
+var OtpMgr *OtpStructs
 
-func UseOtp() *OtpStructs{
-	var waitgroup sync.WaitGroup
-	gsHandlers := make(map[string]*GenServerStruct)
-	fsmHandlers := make(map[string]*FsmStruct)
-	return &OtpStructs{gshandlers: gsHandlers, fsmhandlers: fsmHandlers, wg: &waitgroup}
+func UseOtp(){
+	app := make(map[string]*application)
+	OtpMgr = &OtpStructs{applications:app}
 }
 
 

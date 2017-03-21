@@ -8,7 +8,7 @@ import (
 
 type GenServerStruct struct{
 	Name string
-	os *OtpStructs
+	app *application
 	castpid chan interface{}
 	infopid chan interface{}
 	callpid chan *callMsg
@@ -17,7 +17,7 @@ type GenServerStruct struct{
 }
 
 type GenServer interface {
-	Init()
+	Init() error
 }
 
 type callMsg struct {
@@ -25,24 +25,25 @@ type callMsg struct {
 	msg interface{}
 }
 
-func (otpMgr *OtpStructs)NewGenServer(name string, gServer GenServer){
-	otpMgr.mu.Lock()
-	defer otpMgr.mu.Unlock()
+func NewGenServer(appName string, name string, gServer GenServer){
+	if app, exist := OtpMgr.applications[appName]; !exist{
+		panic("application not start")
+	}else{
+		app.mu.Lock()
+		defer app.mu.Unlock()
 
-	gsStruct := &GenServerStruct{}
-	gsStruct.Name = name
-	gsStruct.genServer = gServer
-	gsStruct.os = otpMgr
+		gsStruct := &GenServerStruct{}
+		gsStruct.Name = name
+		gsStruct.genServer = gServer
+		gsStruct.app = app
 
-	otpMgr.gshandlers[name] = gsStruct
+		app.gshandlers[name] = gsStruct
 
-	gsStruct.start()
-
-	otpMgr.wg.Wait()
+		gsStruct.start()
+	}
 }
 
 func (gs *GenServerStruct) start() {
-	gs.os.wg.Add(1)
 	cpid := make(chan interface{}, 10)
 	ipid := make(chan interface{}, 10)
 	capid := make(chan *callMsg, 10)
@@ -53,24 +54,24 @@ func (gs *GenServerStruct) start() {
 }
 
 
-func (otpMgr *OtpStructs) GenServerCast(mod string, args interface{}) {
-	if gs, err := otpMgr.gshandlers[mod]; !err{
+func (app *application) GenServerCast(mod string, args interface{}) {
+	if gs, err := app.gshandlers[mod]; !err{
 		fmt.Println("cast error mod exist:", err)
 	}else{
 		gs.castpid <- args
 	}
 }
 
-func (otpMgr *OtpStructs) GenServerInfo(mod string, args interface{}) {
-	if gs, err := otpMgr.gshandlers[mod]; !err{
+func (app *application) GenServerInfo(mod string, args interface{}) {
+	if gs, err := app.gshandlers[mod]; !err{
 		fmt.Println("info error mod exist:", err)
 	}else{
 		gs.infopid <- args
 	}
 }
 
-func (otpMgr *OtpStructs) GenServerCall(mod string, args interface{}) interface{}{
-	if gs, err := otpMgr.gshandlers[mod]; !err{
+func (app *application) GenServerCall(mod string, args interface{}) interface{}{
+	if gs, err := app.gshandlers[mod]; !err{
 		fmt.Println("call error mod exist:", err)
 		return nil
 	}else{
@@ -87,7 +88,6 @@ func (otpMgr *OtpStructs) GenServerCall(mod string, args interface{}) interface{
 
 func (gs *GenServerStruct)gen_server(){
 	gs.genServer.Init()
-	gs.os.wg.Done()
 
 	for{
 		select{
