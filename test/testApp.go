@@ -2,32 +2,31 @@ package main
 
 import (
 	"otp"
-	"test/role"
-	"time"
+	"test/tcp"
+	"test/configs"
+	"sync"
 )
 
 type appArgs struct{
 	name string
+	wg *sync.WaitGroup
 }
 
-const TEST_APP_NAME = "testapp"
-
 func main(){
+	var wg sync.WaitGroup
 	otp.UseOtp()
-	otp.ApplicationStart(TEST_APP_NAME, &appArgs{TEST_APP_NAME})
-	time.Sleep(time.Second * 5)
+	wg.Add(1)
+	otp.ApplicationStart(configs.TEST_APP_NAME, &appArgs{configs.TEST_APP_NAME, &wg})
+	wg.Wait()
 }
 
 func (appargs *appArgs) StartApp() error{
-	startRole1(appargs.name)
-	startRole2(appargs.name)
+	startServer(appargs.wg)
+	appargs.wg.Done()
 	return nil
 }
 
-func startRole1(appName string){
-	role.StartRole(appName, "role1")
-}
-
-func startRole2(appName string){
-	role.StartRole(appName, "role2")
+func startServer(wg *sync.WaitGroup){
+	wg.Add(1)
+	tcp.StartServer(wg, configs.SERVER_NAME)
 }

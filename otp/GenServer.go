@@ -14,10 +14,12 @@ type GenServerStruct struct{
 	callpid chan *callMsg
 	genServer GenServer
 	mu sync.RWMutex
+	flag chan string
 }
 
 type GenServer interface {
 	Init() error
+	Terminate() error
 }
 
 type callMsg struct {
@@ -36,10 +38,27 @@ func NewGenServer(appName string, name string, gServer GenServer){
 		gsStruct.Name = name
 		gsStruct.genServer = gServer
 		gsStruct.app = app
+		gsStruct.flag = make(chan string, 10)
 
 		app.gshandlers[name] = gsStruct
 
 		gsStruct.start()
+	}
+}
+
+func Terminate(appName string, name string){
+	if app, exist := OtpMgr.applications[appName]; !exist{
+		panic("application not start")
+	}else{
+		app.mu.Lock()
+		defer app.mu.Unlock()
+
+		if gs, err := app.gshandlers[name]; err{
+			delete(app.gshandlers, name)
+			if err1 := gs.genServer.Terminate(); err1 != nil{
+				gs.flag <- "stop"
+			}
+		}
 	}
 }
 
@@ -98,6 +117,8 @@ func (gs *GenServerStruct)gen_server(){
 		case msg := <- gs.callpid:
 			from := msg.from
 			callFunc(gs, from, msg.msg)
+		case <- gs.flag:
+			break;
 		default:
 			continue
 		}
