@@ -11,6 +11,17 @@ type test struct{
 	arg2 string
 }
 
+type castMessage struct{
+	arg1 int32
+	arg2 string
+}
+
+type infoMessage struct{
+	arg1 int32
+	arg2 string
+	arg3 string
+}
+
 const mod = "test"
 
 var otpMgr *otp.OtpStructs
@@ -28,21 +39,21 @@ func MyTest(){
 }
 
 func cast(){
-	otpMgr.GenServerCast(mod, HandleCast, 33, "22")
+	otpMgr.GenServerCast(mod, &castMessage{11, "aa"})
 }
 
 func info(){
-	otpMgr.GenServerInfo(mod, HandleInfo, "aa", 343, 555)
+	otpMgr.GenServerInfo(mod, &infoMessage{111, "aaa", "bbb"})
 }
 
 func (gs test)Init(){
 	fmt.Println("gen server init arg1:", gs.arg1,"arg2:", gs.arg2)
 }
 
-func HandleInfo(arg1 int32, arg2 string){
-	fmt.Println("handle info", arg1, "+", arg2)
+func (im *infoMessage)HandleInfo(){
+	fmt.Println("handle info", im.arg1, "+", im.arg2, "+", im.arg3)
 }
 
-func HandleCast(arg1 string, arg2 int32, arg3 int32){
-	fmt.Println("handle cast", arg1, "+", arg2, "+", arg3)
+func (cm *castMessage)HandleCast(){
+	fmt.Println("handle cast", cm.arg1, "+", cm.arg2)
 }

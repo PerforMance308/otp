@@ -7,8 +7,8 @@ import (
 
 type GenServerStruct struct{
 	os *OtpStructs
-	castpid chan []interface{}
-	infopid chan []interface{}
+	castpid chan interface{}
+	infopid chan interface{}
 	genServer GenServer
 }
 
@@ -33,15 +33,15 @@ func (otpMgr *OtpStructs)NewGenServer(mod string, gServer GenServer){
 
 func (gs *GenServerStruct) start() {
 	gs.os.wg.Add(1)
-	cpid := make(chan []interface{}, 10)
-	ipid := make(chan []interface{}, 10)
+	cpid := make(chan interface{}, 10)
+	ipid := make(chan interface{}, 10)
 	gs.castpid = cpid
 	gs.infopid = ipid
 	go gs.gen_server()
 }
 
 
-func (otpMgr *OtpStructs) GenServerCast(mod string, args ...interface{}) {
+func (otpMgr *OtpStructs) GenServerCast(mod string, args interface{}) {
 	if gs, err := otpMgr.gshandlers[mod]; !err{
 		fmt.Println("cast error mod exist:", err)
 	}else{
@@ -49,7 +49,7 @@ func (otpMgr *OtpStructs) GenServerCast(mod string, args ...interface{}) {
 	}
 }
 
-func (otpMgr *OtpStructs) GenServerInfo(mod string, args ...interface{}) {
+func (otpMgr *OtpStructs) GenServerInfo(mod string, args interface{}) {
 	if gs, err := otpMgr.gshandlers[mod]; !err{
 		fmt.Println("info error mod exist:", err)
 	}else{
@@ -64,30 +64,21 @@ func (gs *GenServerStruct)gen_server(){
 	for{
 		select{
 		case msg := <- gs.castpid:
-			handler := praiseHandler(msg[0])
-			in := make([]reflect.Value, len(msg)-1)
-			for i, v := range msg[1:]{
-				in[i] = reflect.ValueOf(v)
-			}
-			handler.Call(in)
+			callFunc(msg)
 		case msg := <- gs.infopid:
-			handler := praiseHandler(msg[0])
-			in := make([]reflect.Value, len(msg)-1)
-			for i, v := range msg[1:]{
-				in[i] = reflect.ValueOf(v)
-			}
-			handler.Call(in)
+			elem := reflect.ValueOf(msg)
+			in := make([]reflect.Value, 1)
+			in[0] = elem
+			reflect.TypeOf(msg).Method(0).Func.Call(in)
 		default:
 			continue
 		}
 	}
 }
 
-func praiseHandler(handler interface{}) reflect.Value{
-	hType := reflect.TypeOf(handler)
-	if hType.Kind() != reflect.Func {
-		panic("need be a func")
-	}
-
-	return reflect.ValueOf(handler)
+func callFunc(msg interface{}){
+	elem := reflect.ValueOf(msg)
+	in := make([]reflect.Value, 1)
+	in[0] = elem
+	reflect.TypeOf(msg).Method(0).Func.Call(in)
 }
