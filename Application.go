@@ -1,34 +1,22 @@
 package otp
 
-import "sync"
+import (
+	"sync"
+)
 
-type Application interface {
-	StartApp() error
+type App interface {
+	Start(ap *Application) error
 }
 
-type application struct{
+type Application struct{
 	otpMgr *OtpStructs
-	app Application
-	gshandlers map[string]*GenServerStruct
+	args App
 	mu sync.RWMutex
 }
 
-func ApplicationStart(appName string, app Application) {
-	application := &application{}
-	application.gshandlers = make(map[string]*GenServerStruct)
-	application.app = app
-	if _,exist := OtpMgr.applications[appName]; exist{
-		panic("application already start")
-	}
-
-	go application.Start()
-
-	OtpMgr.applications[appName] = application
-}
-
-func (ap *application)Start(){
-	if err := ap.app.StartApp();err !=nil {
-		panic("application start failed")
+func (ap *Application)Start(){
+	if err := ap.args.Start(ap); err != nil{
+		panic("start app error")
 	}
 }
 

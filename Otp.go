@@ -1,18 +1,22 @@
 package otp
 
-import "sync"
+import (
+	"sync"
+)
 
 type OtpStructs struct{
 	mu sync.RWMutex
-	applications map[string]*application
 }
 
-var OtpMgr *OtpStructs
-
-func UseOtp(){
-	app := make(map[string]*application)
-	OtpMgr = &OtpStructs{applications:app}
+func UseOtp() *OtpStructs {
+	return &OtpStructs{}
 }
 
+func (otpMgr *OtpStructs) ApplicationStart(args App){
+	application := &Application{otpMgr: otpMgr}
+	application.args = args
+
+	go application.Start()
+}
 
 

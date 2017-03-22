@@ -1,64 +1,45 @@
 package otp
 
 import (
-	"fmt"
-	"reflect"
 	"sync"
+	"reflect"
 )
 
-type GenServerStruct struct{
-	Name string
-	app *application
-	castpid chan interface{}
-	infopid chan interface{}
-	callpid chan *callMsg
+type GenServerStruct struct {
+	app       *Application
+	castpid   chan interface{}
+	sendpid   chan interface{}
+	callpid   chan *callMsg
 	genServer GenServer
-	mu sync.RWMutex
-	flag chan string
+	mu        sync.RWMutex
+	flag      chan string
 }
 
 type GenServer interface {
-	Init() error
+	Init(gs *GenServerStruct) error
 	Terminate() error
 }
 
 type callMsg struct {
 	from chan interface{}
-	msg interface{}
+	msg  interface{}
 }
 
-func NewGenServer(appName string, name string, gServer GenServer){
-	if app, exist := OtpMgr.applications[appName]; !exist{
-		panic("application not start")
-	}else{
-		app.mu.Lock()
-		defer app.mu.Unlock()
+func (app *Application) GenServerStart(gServer GenServer) {
+	app.mu.Lock()
+	defer app.mu.Unlock()
 
-		gsStruct := &GenServerStruct{}
-		gsStruct.Name = name
-		gsStruct.genServer = gServer
-		gsStruct.app = app
-		gsStruct.flag = make(chan string, 10)
+	gsStruct := &GenServerStruct{}
+	gsStruct.genServer = gServer
+	gsStruct.app = app
+	gsStruct.flag = make(chan string, 10)
 
-		app.gshandlers[name] = gsStruct
-
-		gsStruct.start()
-	}
+	gsStruct.start()
 }
 
-func Terminate(appName string, name string){
-	if app, exist := OtpMgr.applications[appName]; !exist{
-		panic("application not start")
-	}else{
-		app.mu.Lock()
-		defer app.mu.Unlock()
-
-		if gs, err := app.gshandlers[name]; err{
-			delete(app.gshandlers, name)
-			if err1 := gs.genServer.Terminate(); err1 != nil{
-				gs.flag <- "stop"
-			}
-		}
+func (gs *GenServerStruct) Terminate(name string) {
+	if err1 := gs.genServer.Terminate(); err1 != nil {
+		gs.flag <- "stop"
 	}
 }
 
@@ -67,57 +48,42 @@ func (gs *GenServerStruct) start() {
 	ipid := make(chan interface{}, 10)
 	capid := make(chan *callMsg, 10)
 	gs.castpid = cpid
-	gs.infopid = ipid
+	gs.sendpid = ipid
 	gs.callpid = capid
 	go gs.gen_server()
 }
 
+func (gs *GenServerStruct) Call(args interface{}) interface{} {
+	fr := make(chan interface{}, 10)
+	defer close(fr)
 
-func (app *application) GenServerCast(mod string, args interface{}) {
-	if gs, err := app.gshandlers[mod]; !err{
-		fmt.Println("cast error mod exist:", err)
-	}else{
-		gs.castpid <- args
-	}
+	callMsg := &callMsg{fr, args}
+	gs.callpid <- callMsg
+	rMsg := <-fr
+	return rMsg
 }
 
-func (app *application) GenServerInfo(mod string, args interface{}) {
-	if gs, err := app.gshandlers[mod]; !err{
-		fmt.Println("info error mod exist:", err)
-	}else{
-		gs.infopid <- args
-	}
+func (gs *GenServerStruct) Cast(args interface{}) {
+	gs.castpid <- args
 }
 
-func (app *application) GenServerCall(mod string, args interface{}) interface{}{
-	if gs, err := app.gshandlers[mod]; !err{
-		fmt.Println("call error mod exist:", err)
-		return nil
-	}else{
-		fr := make(chan interface{}, 10)
-		defer close(fr)
-
-		callMsg := &callMsg{fr, args}
-		gs.callpid <- callMsg
-		rMsg := <- fr
-		return rMsg
-	}
+func (gs *GenServerStruct) Send(args interface{}) {
+	gs.sendpid <- args
 }
 
+func (gs *GenServerStruct) gen_server() {
+	gs.genServer.Init(gs)
 
-func (gs *GenServerStruct)gen_server(){
-	gs.genServer.Init()
-
-	for{
-		select{
-		case msg := <- gs.castpid:
+	for {
+		select {
+		case msg := <-gs.castpid:
 			castFunc(gs, msg)
-		case msg := <- gs.infopid:
-			infoFunc(gs, msg)
-		case msg := <- gs.callpid:
+		case msg := <-gs.sendpid:
+			sendFunc(gs, msg)
+		case msg := <-gs.callpid:
 			from := msg.from
 			callFunc(gs, from, msg.msg)
-		case <- gs.flag:
+		case <-gs.flag:
 			break;
 		default:
 			continue
@@ -125,33 +91,30 @@ func (gs *GenServerStruct)gen_server(){
 	}
 }
 
-func castFunc(gs *GenServerStruct, msg interface{}){
+func callFunc(gs *GenServerStruct, from chan interface{}, msg interface{}) {
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 	elem := reflect.ValueOf(msg)
 	in := make([]reflect.Value, 2)
-	in[0] = elem
-	in[1] = reflect.ValueOf(gs)
-	reflect.TypeOf(msg).Method(0).Func.Call(in)
-}
-
-func infoFunc(gs *GenServerStruct, msg interface{}){
-	gs.mu.Lock()
-	defer gs.mu.Unlock()
-	elem := reflect.ValueOf(msg)
-	in := make([]reflect.Value, 2)
-	in[0] = elem
-	in[1] = reflect.ValueOf(gs)
-	reflect.TypeOf(msg).Method(0).Func.Call(in)
-}
-
-func callFunc(gs *GenServerStruct, from chan interface{}, msg interface{}){
-	gs.mu.Lock()
-	defer gs.mu.Unlock()
-	elem := reflect.ValueOf(msg)
-	in := make([]reflect.Value, 3)
 	in[0] = elem
 	in[1] = reflect.ValueOf(from)
-	in[2] = reflect.ValueOf(gs)
+	reflect.TypeOf(msg).Method(0).Func.Call(in)
+}
+
+func castFunc(gs *GenServerStruct, msg interface{}) {
+	gs.mu.Lock()
+	defer gs.mu.Unlock()
+	elem := reflect.ValueOf(msg)
+	in := make([]reflect.Value, 1)
+	in[0] = elem
+	reflect.TypeOf(msg).Method(0).Func.Call(in)
+}
+
+func sendFunc(gs *GenServerStruct, msg interface{}) {
+	gs.mu.Lock()
+	defer gs.mu.Unlock()
+	elem := reflect.ValueOf(msg)
+	in := make([]reflect.Value, 1)
+	in[0] = elem
 	reflect.TypeOf(msg).Method(0).Func.Call(in)
 }
