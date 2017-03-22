@@ -1,12 +1,12 @@
 package otp
 
 import (
-	"sync"
 	"reflect"
+	"sync"
 )
 
 type GenServerStruct struct {
-	app       *Application
+	App       *Application
 	castpid   chan interface{}
 	sendpid   chan interface{}
 	callpid   chan *callMsg
@@ -25,19 +25,21 @@ type callMsg struct {
 	msg  interface{}
 }
 
-func (app *Application) GenServerStart(gServer GenServer) {
+func (app *Application) GenServerStart(gServer GenServer) *GenServerStruct {
 	app.mu.Lock()
 	defer app.mu.Unlock()
 
 	gsStruct := &GenServerStruct{}
 	gsStruct.genServer = gServer
-	gsStruct.app = app
+	gsStruct.App = app
 	gsStruct.flag = make(chan string, 10)
 
 	gsStruct.start()
+
+	return gsStruct
 }
 
-func (gs *GenServerStruct) Terminate(name string) {
+func (gs *GenServerStruct) Terminate() {
 	if err1 := gs.genServer.Terminate(); err1 != nil {
 		gs.flag <- "stop"
 	}
@@ -84,7 +86,7 @@ func (gs *GenServerStruct) gen_server() {
 			from := msg.from
 			callFunc(gs, from, msg.msg)
 		case <-gs.flag:
-			break;
+			break
 		default:
 			continue
 		}
